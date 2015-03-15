@@ -29,14 +29,12 @@ import io.github.benas.jpopulator.beans.*;
 import io.github.benas.jpopulator.randomizers.CityRandomizer;
 import io.github.benas.jpopulator.randomizers.EmailRandomizer;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -156,6 +154,34 @@ public class PopulatorImplTest {
 
     }
 
+    @Test
+    public void testCollectionPopulation() {
+        SocialPerson socialPerson = populator.populateBean(SocialPerson.class);
+
+        assertThat(socialPerson).isNotNull();
+        assertPerson(socialPerson);
+
+        final Set<Person> friends = socialPerson.getFriends();
+        assertThat(friends).isNotNull();
+        for (Person friend : friends) {
+            assertThat(friend).isNotNull();
+            assertPerson(friend);
+        }
+
+        final List<String> pseudos = socialPerson.getPseudos();
+        assertThat(pseudos).isNotNull();
+        for (String pseudo : pseudos) {
+            assertThat(pseudo).isNotNull();
+        }
+
+        final Map<String,String> accounts = socialPerson.getAccounts();
+        assertThat(accounts).isNotNull();
+        for (Map.Entry<String, String> account : accounts.entrySet()) {
+            assertThat(account.getKey()).isNotNull();
+            assertThat(account.getValue()).isNotNull();
+        }
+    }
+
     /*
      * Assert that a person is correctly populated
      */
@@ -179,7 +205,7 @@ public class PopulatorImplTest {
 
         assertThat(person.getPhoneNumber()).isNotNull().isNotEmpty();
 
-        assertThat(person.getNicknames()).isNotNull().isEmpty();
+        assertThat(person.getNicknames()).isNotNull();
     }
 
     /*
@@ -206,49 +232,6 @@ public class PopulatorImplTest {
         assertThat(street.getNumber()).isNotNull();
         assertThat(street.getType()).isNotNull();
 
-    }
-
-    @Ignore("This test is just a show case for issue #19")
-    @Test
-    public void testParametrizedCollectionTypeInference() {
-        // Note: error handling will be added when the feature is implemented
-
-        //Get declared fields
-        Field[] fields = SocialPerson.class.getDeclaredFields();
-
-        // Get the "friends" field which is of type java.util.Set<Person>
-        Field friendsField = fields[0];
-        System.out.println("friendsField = " + friendsField.getName());
-
-        /*
-         * Now the goal is to be able introspect that the actual type of objects in the Set is Person.class
-         */
-
-        // Get the generic type of the friends field
-        Type genericType = friendsField.getGenericType();// java.util.Set<Person>
-        System.out.println("genericType = " + genericType);
-
-        /*
-         * At this point, at runtime, we would like to know if the Set is parametrized or not:
-         *  - If it is parametrized (ie genericType instanceOf ParameterizedType), then jPopulator should be able to get the
-         *      actual type, generate random instances and fill the Set
-         *  - If the set is not parametrized, jPopulator is not able to know which type of objects to generate,
-         *      hence, it will generate an empty collections (but.. in this case, are there folks using non-typed collections in 2015?
-         *      using collections with raw types is a bad practice, cf effective java 2nd edition - Item 23)
-         */
-
-        // Get the parametrized type of the friends field
-        ParameterizedType parameterizedType = (ParameterizedType) genericType; // the test "genericType instanceOf ParameterizedType" will be added in the implementation
-        System.out.println("parameterizedType = " + parameterizedType);
-
-        // Get the actual types (this is an array because there could be multiple types, think of MyType<I, O, R> for example)
-        Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
-
-        // Get the actual type
-        Type actualTypeArgument = actualTypeArguments[0];// Person.class
-        System.out.println("actualTypeArgument = " + actualTypeArgument);
-
-        assertThat(actualTypeArgument).isEqualTo(Person.class);
     }
 
 }

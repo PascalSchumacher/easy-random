@@ -28,25 +28,16 @@ import io.github.benas.jpopulator.api.Exclude;
 import io.github.benas.jpopulator.api.Populator;
 import io.github.benas.jpopulator.api.Randomizer;
 
-import java.lang.reflect.Array;
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
+import java.lang.reflect.*;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Calendar;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import io.github.benas.jpopulator.util.ConstantsUtil;
 import org.apache.commons.beanutils.PropertyUtils;
 import org.apache.commons.math3.random.RandomDataGenerator;
 
@@ -227,11 +218,11 @@ public final class PopulatorImpl implements Populator {
             //Collection type
             Object collection = null;
             if (List.class.isAssignableFrom(fieldType)) { // List, ArrayList, LinkedList, etc
-                collection = Collections.emptyList();
+                collection = populateList(field);
             } else if (Set.class.isAssignableFrom(fieldType)) { // Set, HashSet, TreeSet, LinkedHashSet, etc
-                collection = Collections.emptySet();
+                collection = populateSet(field);
             } else if (Map.class.isAssignableFrom(fieldType)) { // Map, HashMap, Dictionary, Properties, etc
-                collection = Collections.emptyMap();
+                collection = populateMap(field);
             }
             PropertyUtils.setProperty(result, fieldName, collection);
         }
@@ -316,6 +307,92 @@ public final class PopulatorImpl implements Populator {
                field.isAnnotationPresent(javax.validation.constraints.DecimalMax.class) ||
                field.isAnnotationPresent(javax.validation.constraints.DecimalMin.class) ||
                field.isAnnotationPresent(javax.validation.constraints.Size.class);
+    }
+
+    private List populateList(Field field) throws Exception {
+        List list = new ArrayList();
+        Type genericType = field.getGenericType();
+        if (genericType instanceof ParameterizedType) {
+            ParameterizedType parameterizedType = (ParameterizedType) genericType;
+            Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
+            if (actualTypeArguments.length != 0) {
+                Type actualTypeArgument = actualTypeArguments[0];
+                String className = getClassName(actualTypeArgument);
+                Class targetClass = Class.forName(className);
+                int nbEntries = getRandomNumberOfElements();
+                for (int i = 0; i < nbEntries; i++) {
+                    list.add(populateElement(targetClass));
+                }
+            }
+        } else {
+            list = Collections.emptyList();
+        }
+        return list;
+    }
+
+    private String getClassName(Type actualTypeArgument) {
+        return actualTypeArgument.toString().substring(6);
+    }
+
+    private Set populateSet(Field field) throws ClassNotFoundException {
+        Set set = new HashSet();
+        Type genericType = field.getGenericType();
+        if (genericType instanceof ParameterizedType) {
+            ParameterizedType parameterizedType = (ParameterizedType) genericType;
+            Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
+            if (actualTypeArguments.length != 0) {
+                Type actualTypeArgument = actualTypeArguments[0];
+                String className = getClassName(actualTypeArgument);
+                Class targetClass = Class.forName(className);
+                int nbEntries = getRandomNumberOfElements();
+                for (int i = 0; i < nbEntries; i++) {
+                    set.add(populateElement(targetClass));
+                }
+            }
+        } else {
+            set = Collections.emptySet();
+        }
+        return set;
+    }
+
+    private Object populateElement(Class targetClass) {
+        Object element;
+        if (isSupportedType(targetClass)) {
+            element = DefaultRandomizer.getRandomValue(targetClass);
+        } else {
+            element = populateBean(targetClass);
+        }
+        return element;
+    }
+
+    private int getRandomNumberOfElements() {
+        return ConstantsUtil.RANDOM.nextInt(100);
+    }
+
+    private Map populateMap(Field field) throws ClassNotFoundException {
+        Map map = new HashMap();
+        Type genericType = field.getGenericType();
+        if (genericType instanceof ParameterizedType) {
+            ParameterizedType parameterizedType = (ParameterizedType) genericType;
+            Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
+            if (actualTypeArguments.length == 2) { // Map<KeyType, ValueType>
+                Type keyTypeArgument = actualTypeArguments[0];
+                Type valueTypeArgument = actualTypeArguments[1];
+                int nbEntries = getRandomNumberOfElements();
+                for (int i = 0; i < nbEntries; i++) {
+                    String keyClassName = getClassName(keyTypeArgument);
+                    Class keyTargetClass = Class.forName(keyClassName);
+
+                    String valueClassName = getClassName(valueTypeArgument);
+                    Class valueTargetClass = Class.forName(valueClassName);
+
+                    map.put(populateElement(keyTargetClass), populateElement(valueTargetClass));
+                }
+            }
+        } else {
+            map = Collections.emptyMap();
+        }
+        return map;
     }
 
 }
